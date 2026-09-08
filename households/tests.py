@@ -1,6 +1,9 @@
+from datetime import timedelta
+
 from django.core.exceptions import ValidationError
 from django.db import IntegrityError, transaction
 from django.test import TestCase
+from django.utils import timezone
 
 from .assignment import pick_member_for_assignment
 from .models import Household, Member
@@ -51,20 +54,56 @@ class PickMemberForAssignmentTests(TestCase):
 
         self.assertEqual(pick_member_for_assignment(self.household), low)
 
-    def test_tied_members_return_one_of_the_tied_members(self):
-        tied = [
-            Member.objects.create(
-                household=self.household, name="A", completed_turns=2
-            ),
-            Member.objects.create(
-                household=self.household, name="B", completed_turns=2
-            ),
-        ]
+    def test_tie_on_completed_turns_is_broken_by_last_assigned_at(self):
+        # "Recently assigned" joins first (earlier joined_at), so if join
+        # order were consulted before last_assigned_at, it would win.
+        # It shouldn't: "Never assigned" has waited longer.
         Member.objects.create(
-            household=self.household, name="High", completed_turns=9
+            household=self.household,
+            name="Recently assigned",
+            completed_turns=3,
+            last_assigned_at=timezone.now(),
+        )
+        never_assigned = Member.objects.create(
+            household=self.household, name="Never assigned", completed_turns=3
         )
 
-        self.assertIn(pick_member_for_assignment(self.household), tied)
+        self.assertEqual(
+            pick_member_for_assignment(self.household), never_assigned
+        )
+
+    def test_tie_on_completed_turns_is_broken_by_oldest_last_assigned_at(self):
+        now = timezone.now()
+        # Created in the order that would pick the wrong member if join
+        # order were consulted before last_assigned_at.
+        Member.objects.create(
+            household=self.household,
+            name="Assigned yesterday",
+            completed_turns=4,
+            last_assigned_at=now - timedelta(days=1),
+        )
+        assigned_long_ago = Member.objects.create(
+            household=self.household,
+            name="Assigned 10 days ago",
+            completed_turns=4,
+            last_assigned_at=now - timedelta(days=10),
+        )
+
+        self.assertEqual(
+            pick_member_for_assignment(self.household), assigned_long_ago
+        )
+
+    def test_tie_on_completed_turns_and_last_assigned_at_is_broken_by_join_order(
+        self,
+    ):
+        earliest = Member.objects.create(
+            household=self.household, name="Earliest", completed_turns=2
+        )
+        Member.objects.create(
+            household=self.household, name="Latest", completed_turns=2
+        )
+
+        self.assertEqual(pick_member_for_assignment(self.household), earliest)
 
     def test_household_with_no_members_raises(self):
         with self.assertRaises(ValueError):
