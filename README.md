@@ -22,16 +22,39 @@ so it doesn't have to be argued about.
 
 Full spec: [`_docs/plan.md`](_docs/plan.md).
 
+## Stack
+
+Django 5.2 (LTS), SQLite for local development. Two apps:
+
+- `households` — `Household`, `Member` (plan.md §2)
+- `chores` — `Chore`, `Assignment`, `Skip` (plan.md §3, §5)
+
+## Setup
+
+Requires Python 3.10+.
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+python manage.py migrate
+python manage.py createsuperuser
+python manage.py runserver
+```
+
+Then visit `http://127.0.0.1:8000/admin/` to browse and edit data directly —
+there's no custom UI yet, so admin is the interface for now.
+
 ## Status
 
 Early development. Build order follows the spec:
 
-1. Data model (members, chores, assignments, skips)
-2. Assignment algorithm (tiebreaks, new-member averaging)
-3. Completion logging and turn counts
-4. Skip flow, owed turns, debt cap
-5. Accounts and authentication
-6. Notifications
+1. ✅ Data model (members, chores, assignments, skips)
+2. ⬜ Assignment algorithm (tiebreaks, new-member averaging)
+3. ⬜ Completion logging and turn counts
+4. ⬜ Skip flow, owed turns, debt cap
+5. ⬜ Accounts and authentication
+6. ⬜ Notifications
 
 ## Project
 
