@@ -1,3 +1,4 @@
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -29,8 +30,27 @@ class Chore(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                # Literal "recurring" rather than referencing Chore.RECURRING:
+                # a nested Meta class does not see its outer class's
+                # namespace, only this module's globals.
+                check=~models.Q(chore_type="recurring", frequency=""),
+                name="chore_recurring_requires_frequency",
+                violation_error_message="A recurring chore must have a "
+                "frequency (plan.md §3).",
+            ),
+        ]
+
     def __str__(self):
         return self.name
+
+    def clean(self):
+        if self.chore_type == self.RECURRING and not self.frequency:
+            raise ValidationError(
+                {"frequency": "A recurring chore must have a frequency (plan.md §3)."}
+            )
 
 
 class Assignment(models.Model):
